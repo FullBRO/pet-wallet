@@ -1,4 +1,5 @@
 import 'dotenv/config'
-import {startBot} from './modules/bot/bot.js'
+import { bot } from './bot/instance.js'
+import './bot/handler.js'  // register listeners
 
-startBot()
+console.log('Bot started...')

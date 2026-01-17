@@ -7,10 +7,12 @@
   },
   "dependencies": {
     "dotenv": "^17.2.3",
+    "node-telegram-bot-api": "^0.67.0",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.9",
+    "@types/node-telegram-bot-api": "^0.64.13",
     "ts-node": "^1.7.1",
     "typescript": "^5.9.3"
   }
