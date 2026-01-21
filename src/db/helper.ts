@@ -1,6 +1,5 @@
 import { Sequelize, Transaction } from "sequelize";
 import { sequelize } from "./sequelize.js";
-import { internalError } from "../errors/classes/AppError.js";
 
 export async function atomicTransaction<D, R>(
     data: D, 
