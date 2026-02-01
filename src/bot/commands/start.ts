@@ -2,6 +2,7 @@ import type TelegramBot from 'node-telegram-bot-api'
 import type { Message } from 'node-telegram-bot-api'
 import {bot} from '../instance.js'
 import { User } from '../../db/models/User.js';
+import { atomicTransaction } from '../../db/helper.js';
 
 export async function start(msg: Message): Promise<void> {
     if (!msg.chat?.id) return;
@@ -14,13 +15,13 @@ export async function start(msg: Message): Promise<void> {
     await askName(msg);
 }
 
-async function askName(msg: Message) {
+async function askName(msg: Message): Promise<void> {
     const chatId = msg.chat.id;
     const sentMessage = await bot.sendMessage(chatId, 'Pick a username, please', {reply_markup: {force_reply: true}})
     bot.onReplyToMessage(chatId, sentMessage.message_id, getName)
 }
 
-async function getName(msg: Message){
+async function getName(msg: Message): Promise<void>{
     const username = msg.text?.trim();
     const chatId = msg.chat.id;
 
@@ -42,20 +43,29 @@ async function getName(msg: Message){
       return;
     }
 
-    let user = {username: 'stranger'};
-    let created = false;
+    const date = new Date()
+    const user = await atomicTransaction(new User({id: msg.from?.id, username: msg.text, created_at: date}), createUserByName) ?? null
 
-    try{
-        [user, created] = await User.findOrCreate({where: {username: msg.text}, defaults: {id: msg.from?.id, created_at: Date.now()}})
-    } catch(error){
-        console.error(error);
-        bot.sendMessage(msg.chat.id, 'Error')
-        return;
-    }
-    if(!created){
+    if(user?.created_at && user?.created_at < date){
         bot.sendMessage(msg.chat.id, 'Username is taken already');
         await askName(msg);
         return;
     }
+    if(!user){
+        bot.sendMessage(msg.chat.id, 'Internal error. Please, try again later or contact administrator')
+        return;
+    }
     bot.sendMessage(msg.chat.id, `You have succesfully signed up. Welcome, ${user.username}`)
+}
+
+
+async function createUserByName(userData: User): Promise<User | null> {
+    try{
+        const [user] = await User.findOrCreate({where: {username: userData.username}, defaults: {id: userData.id, created_at: userData.created_at}})
+        return user
+    } catch(error){
+        console.error(error);
+        return null;
+    }
+
 }
