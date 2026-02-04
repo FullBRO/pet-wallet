@@ -12,3 +12,5 @@ export const sequelize = new Sequelize(
     logging: env.DB_LOG_SQL  ? console.log : false,
   }
 );
+
+sequelize.sync()
