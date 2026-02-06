@@ -1,4 +1,5 @@
 import { Transaction, UniqueConstraintError } from "sequelize"
+import type {Identifier} from 'sequelize'
 import { Event } from "../../db/models/Event.js"
 
 export async function createEvent(data: postEventData, transaction: Transaction): Promise<Event | null>{
@@ -35,6 +36,20 @@ export async function createEvent(data: postEventData, transaction: Transaction)
 }
 
 
+export async function fetchEventById(data: fetchEventByIdData, transaction: Transaction): Promise<Event | null>{
+    try{
+        const event = await Event.findByPk(data.id)
+        if( event) {
+            return event;
+        }
+        return null;
+    }catch(error){
+        console.error(error);
+        return null;
+    }
+}
+
+
 export class postEventData extends Object {
     readonly id: string = '';
     readonly provider: string = '';
@@ -48,5 +63,13 @@ export class postEventData extends Object {
        this.type = type;
        this.data = data;
        this.timestamp = isNaN(timestamp.getTime()) ? new Date() : timestamp;
+    }
+}
+
+export class fetchEventByIdData extends Object {
+    readonly id: number = 0;
+    constructor(id: number){
+        super();
+        this.id = id;
     }
 }
