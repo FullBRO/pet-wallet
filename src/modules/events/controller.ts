@@ -1,6 +1,6 @@
 import type {Request, Response} from 'express'
 import { atomicTransaction } from '../../db/helper.js'
-import { createEvent, postEventData } from './helper.js';
+import { createEvent, fetchEventById, fetchEventByIdData, postEventData } from './helper.js';
 import { EVENT_STATUSES } from './constants.js';
 
 export async function postEvent(req: Request, res: Response){
@@ -18,3 +18,15 @@ export async function postEvent(req: Request, res: Response){
 }
 
 
+export async function getEventById(req: Request, res: Response){
+    const id = Number(req.params.id);
+
+
+
+    const event = await atomicTransaction(new fetchEventByIdData(id),fetchEventById )
+
+    if (event){
+        return res.status(200).json(event.get())
+    }
+    return res.status(500).json({message: `No event with id ${id} found`})
+}
