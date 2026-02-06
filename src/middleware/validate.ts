@@ -10,9 +10,7 @@ export function validate(req: Request, res: Response, next: NextFunction) {
     try{
         const errors = result.array({ onlyFirstError: true })
         
-
         const invalidValues = errors
-            .filter(e => e.msg === 'Invalid value')
             .flatMap(errorPaths) 
 
         return res.status(400).json({ errors: { invalidValues, all: errors } })
