@@ -6,7 +6,12 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@types/express": "^5.0.6",
+    "bullmq": "^5.67.2",
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.1",
+    "ioredis": "^5.9.2",
     "mysql2": "^3.16.1",
     "node-telegram-bot-api": "^0.67.0",
     "sequelize": "^6.37.7",

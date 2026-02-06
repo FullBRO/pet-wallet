@@ -11,6 +11,9 @@ const envSchema = z.object({
     DB_NAME: z.string().min(1),
     DB_USER: z.string().min(1),
     DB_PASS: z.string().min(1),
+    REDIS_HOST: z.string().min(1),
+    REDIS_PORT: z.coerce.number().int().positive().default(6379),
+ 
 
     DB_LOG_SQL: z.coerce.boolean().default(false),
 })
