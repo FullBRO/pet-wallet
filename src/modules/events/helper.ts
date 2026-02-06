@@ -1,30 +1,33 @@
 import { Transaction, UniqueConstraintError } from "sequelize"
 import type {Identifier} from 'sequelize'
 import { Event } from "../../db/models/Event.js"
+import { postEventQueue } from "./bull.js"
 
 export async function createEvent(data: postEventData, transaction: Transaction): Promise<Event | null>{
     try{
 
         const event = await Event.create(
             {
-                provider: data.provider, 
+                source: data.source, 
                 type: data.type,
-                created_at: data.timestamp,
-                external_event_id: data.id,
-                payload_json: data.data
+                occured_at: data.timestamp,
+                event_uid: data.id,
             }, 
             {
                 transaction
             }
         )
-        if(event) return event
+        if(event) {
+            postEventQueue.add('process', {eventId: event.id}, { jobId: String(event.id)})
+            return event
+        }
         return null
     }catch(error){
         if(error instanceof UniqueConstraintError){
             return await Event.findOne({
                 where: {
-                    provider: data.provider,
-                    external_event_id: data.id
+                    event_uid: data.id,
+                    source: data.source
                 },
                 transaction
                 }
@@ -38,7 +41,7 @@ export async function createEvent(data: postEventData, transaction: Transaction)
 
 export async function fetchEventById(data: fetchEventByIdData, transaction: Transaction): Promise<Event | null>{
     try{
-        const event = await Event.findByPk(data.id)
+        const event = await Event.findByPk(data.id, {transaction})
         if( event) {
             return event;
         }
@@ -52,16 +55,16 @@ export async function fetchEventById(data: fetchEventByIdData, transaction: Tran
 
 export class postEventData extends Object {
     readonly id: string = '';
-    readonly provider: string = '';
+    readonly source: string = '';
     readonly type: string = '';
-    readonly data: string = '{}';
+    readonly data: string = '{}'
     readonly timestamp: Date = new Date();
-    constructor(id: string, provider: string, type: string, data: string, timestamp: Date){
+    constructor(id: string, source: string, type: string, timestamp: Date, data: string){
        super()
-       this.id = id;
-       this.provider = provider;
-       this.type = type;
        this.data = data;
+       this.id = id;
+       this.source = source;
+       this.type = type;
        this.timestamp = isNaN(timestamp.getTime()) ? new Date() : timestamp;
     }
 }

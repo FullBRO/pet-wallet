@@ -20,27 +20,23 @@ Event.init({
         primaryKey: true,
         autoIncrement: true,
     },
-    provider: {
+    event_uid: {
+        type: DataTypes.STRING(64),
+        allowNull: false,
+    },
+    source: {
         type: DataTypes.STRING(8),
         allowNull: false,
     },
-    external_event_id: {
-        type: DataTypes.STRING(32),
-        allowNull: false
-    },
-    payload_json: {
-        type: DataTypes.TEXT,
-        allowNull: true
-    },
-    status: {
-        type: DataTypes.ENUM('received', 'processing', 'processed', 'failed'),
-        allowNull: false,
-        defaultValue: 'received'
-    },
     type: {
-        type: DataTypes.STRING(16),
+        type: DataTypes.STRING(32),
         allowNull: false,
         defaultValue: 'undefined'
+    },
+    status: {
+        type: DataTypes.ENUM('received', 'processing', 'processed', 'failed', 'ignored'),
+        allowNull: false,
+        defaultValue: 'received'
     },
     error: {
         type: DataTypes.STRING,
@@ -52,15 +48,20 @@ Event.init({
         allowNull: false,
         defaultValue: 1
     },
-    created_at: {
+    occured_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: null
+    },
+    received_at: {
         type: DataTypes.DATE,
         allowNull: false,
         defaultValue: DataTypes.NOW
     },
-    updated_at: {
+    processed_at: {
         type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
+        allowNull: true,
+        defaultValue: null
     }
 },
 {
@@ -70,9 +71,14 @@ Event.init({
     indexes: [
         {
             unique: true,
-            name: 'uniq_events_provider_external',
-            fields: ['provider', 'external_event_id'],
+            fields: ['event_uid', 'source']
         },
+        {
+            fields: ['type', 'occured_at'],
+        },
+        {
+            fields: ['status', 'received_at'],
+        }
     ],
 })
 

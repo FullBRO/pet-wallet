@@ -4,12 +4,11 @@ import { createEvent, fetchEventById, fetchEventByIdData, postEventData } from '
 import { EVENT_STATUSES } from './constants.js';
 
 export async function postEvent(req: Request, res: Response){
-    const {provider, id, type, timestamp, data} = req.body
-    const event = await atomicTransaction(new postEventData(id, provider, type, JSON.stringify(data), new Date(timestamp)), createEvent)
+    const {source, id, type, timestamp, data} = req.body
+    const event = await atomicTransaction(new postEventData(id, source, type, new Date(timestamp), JSON.stringify(data)), createEvent)
     if(!event) {
         return res.status(500).json({error: "Internal error"})
     }
-    console.log(event.dataValues)
     if(event.status!==EVENT_STATUSES.received) {
         return res.status(409).json({message: "Event exists already. No changes made", event})
     }
