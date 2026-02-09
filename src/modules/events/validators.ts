@@ -9,12 +9,12 @@ export const postEventValidator = [
     body('id')
         .isString()
         .withMessage("id must be a string")
-        .isLength({min: 64, max: 64})
+        .isLength({min: 1, max: 64})
         .withMessage("id length must be 64 characters"),
     
     body('type', 'Invalid type field')
         .isString()
-        .matches(/^[a-z]+\.[a-z]+$/)
+        .matches(/^[a-z]+$/)
         .withMessage('Invalid type structure. Refer to guide'),
 
     body('timestamp', 'Invalid timestamp field')
@@ -27,7 +27,3 @@ export const postEventValidator = [
         .withMessage('Invalid data field. Should to be a JSON object')
 ]
 
-export const getEventByIdValidator = [
-    param('id', 'Invalid id field')
-        .isNumeric()
-]

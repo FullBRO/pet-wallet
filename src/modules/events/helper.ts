@@ -1,27 +1,33 @@
 import { Transaction, UniqueConstraintError } from "sequelize"
-import type {Identifier} from 'sequelize'
-import { Event } from "../../db/models/Event.js"
+import { Event, Payload } from "../../db/models/index.js"
 import { postEventQueue } from "./bull.js"
+import { EVENT_STATUSES } from "./constants.js"
 
-export async function createEvent(data: postEventData, transaction: Transaction): Promise<Event | null>{
+export async function createEvent(data: PostEventData, transaction: Transaction): Promise<Event | null>{
     try{
 
         const event = await Event.create(
             {
                 source: data.source, 
                 type: data.type,
-                occured_at: data.timestamp,
+                occurred_at: data.timestamp,
                 event_uid: data.id,
             }, 
             {
                 transaction
             }
         )
-        if(event) {
-            postEventQueue.add('process', {eventId: event.id}, { jobId: String(event.id)})
-            return event
-        }
-        return null
+        const payload = await Payload.create({
+            id: event.id,
+            payload: JSON.stringify(data.data)
+        },
+        {transaction})
+        await Event.update({status: EVENT_STATUSES.processing}, {where: {id: event.id, status: EVENT_STATUSES.received }, transaction})
+        transaction.afterCommit(()=>{
+            postEventQueue.add('process',{eventId: event.id}, { jobId: `event_${event.id.toString()}`})
+                .catch(error => console.error(error))
+        })
+        return event
     }catch(error){
         if(error instanceof UniqueConstraintError){
             return await Event.findOne({
@@ -38,41 +44,31 @@ export async function createEvent(data: postEventData, transaction: Transaction)
     }
 }
 
+type PayloadByType = {
+    tx: TransactionPayload; //rest is commented until implemented
+    //user: { tg_user_id: number; username?: string };
+    //game: { tg_user_id: number; game_id: number; round_id?: number };
+    //leaderboard: { week_start: string; metric: string; snapshot: unknown[] };
+};
 
-export async function fetchEventById(data: fetchEventByIdData, transaction: Transaction): Promise<Event | null>{
-    try{
-        const event = await Event.findByPk(data.id, {transaction})
-        if( event) {
-            return event;
-        }
-        return null;
-    }catch(error){
-        console.error(error);
-        return null;
-    }
-}
+type EventType = keyof PayloadByType
 
+export type PostEventData<T extends EventType = EventType> = {
+  id: string;
+  source: string;
+  type: T;
+  timestamp: Date;
+  data: PayloadByType[T];
+};
 
-export class postEventData extends Object {
-    readonly id: string = '';
-    readonly source: string = '';
-    readonly type: string = '';
-    readonly data: string = '{}'
-    readonly timestamp: Date = new Date();
-    constructor(id: string, source: string, type: string, timestamp: Date, data: string){
-       super()
-       this.data = data;
-       this.id = id;
-       this.source = source;
-       this.type = type;
-       this.timestamp = isNaN(timestamp.getTime()) ? new Date() : timestamp;
-    }
-}
+//to be used when parsing transaction event
+export type TransactionPayload = {
+  currency: string;
+  txHash: string;
+  sender?: string;
+  receiver?: string;
+  message?: string;
+  amount_nano: string;  
+  status?: "completed" | "failed" | "returned" | "lost";
+};
 
-export class fetchEventByIdData extends Object {
-    readonly id: number = 0;
-    constructor(id: number){
-        super();
-        this.id = id;
-    }
-}

@@ -1,11 +1,11 @@
 import type {Request, Response} from 'express'
 import { atomicTransaction } from '../../db/helper.js'
-import { createEvent, fetchEventById, fetchEventByIdData, postEventData } from './helper.js';
+import { createEvent } from './helper.js';
 import { EVENT_STATUSES } from './constants.js';
 
 export async function postEvent(req: Request, res: Response){
     const {source, id, type, timestamp, data} = req.body
-    const event = await atomicTransaction(new postEventData(id, source, type, new Date(timestamp), JSON.stringify(data)), createEvent)
+    const event = await atomicTransaction({id, source, type, timestamp: new Date(timestamp), data}, createEvent)
     if(!event) {
         return res.status(500).json({error: "Internal error"})
     }
@@ -17,15 +17,3 @@ export async function postEvent(req: Request, res: Response){
 }
 
 
-export async function getEventById(req: Request, res: Response){
-    const id = Number(req.params.id);
-
-
-
-    const event = await atomicTransaction(new fetchEventByIdData(id),fetchEventById )
-
-    if (event){
-        return res.status(200).json(event.get())
-    }
-    return res.status(500).json({message: `No event with id ${id} found`})
-}
