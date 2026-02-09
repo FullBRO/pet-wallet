@@ -19,6 +19,7 @@ export async function atomicTransaction<D, R>(
         const result = await commitFunction(data, transaction);
 
         if (ownTransaction) {
+            console.log("commit")
             await transaction.commit();
         }
 
