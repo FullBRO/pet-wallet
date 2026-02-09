@@ -1,4 +1,4 @@
-import { Worker, QueueEvents } from 'bullmq';
+import { Worker, QueueEvents, UnrecoverableError } from 'bullmq';
 import type {Job} from 'bullmq'
 import { Payload } from '../db/models/Payload.js';
 import { atomicTransaction } from '../db/helper.js';
@@ -18,7 +18,7 @@ const redisOptions: RedisOptions = {
 };
 
 const connection = new Redis(redisOptions);
-const workerConnection = connection;            
+const workerConnection = connection.duplicate();            
 const eventsConnection = connection.duplicate();
 
 export const POST_EVENT_QUEUE = 'event_post'
@@ -59,6 +59,7 @@ async function processPost(data: postEventQueueData, transaction: Transaction): 
         return null;
     }
     await event.update({status: EVENT_STATUSES.processing}, {transaction})
+    await event.increment(['attempts'], {by:1, transaction})
     const payload = await Payload.findByPk(id, {transaction})
     if(!payload) {
         throw new Error("Payload not found")
@@ -70,19 +71,23 @@ async function processPost(data: postEventQueueData, transaction: Transaction): 
                 row = await parseTx(payload.payload, id, transaction)
                 break;
             default:
-                row = null
-                break;
+                await payload.update({status: 'failed'}, {transaction})
+                await event.update({status: EVENT_STATUSES.failed, error: 'Failed to create details row. Manual intervention required'}, {transaction})
+                return null
         }
     } catch(error){
-        if(error instanceof ZodError){
-            await payload.update({ status: "invalid" }, { transaction });
-            await event.update({ status: "failed" }, { transaction });
+        if(error instanceof ZodError || (error instanceof Error && error.message==="JSON is invalid")){
+            await payload.update({ status: "invalid" }, {transaction});
+            await event.update({ status: EVENT_STATUSES.failed, error: "Strucural non-retryable error" }, {transaction});
             return null
         }
+        await payload.update({status: 'processing'})
+        await event.update({ status: EVENT_STATUSES.failed, error: "Unrecognized retryable error" });
+        throw new Error(`Unrecognize error. Source: ${error}`)
     }
     if(row){
         await payload.update({status: 'processed'}, {transaction})
-        await event.update({status: EVENT_STATUSES.processed}, {transaction})
+        await event.update({status: EVENT_STATUSES.processed, error: null}, {transaction})
     }
     return row
 }
@@ -93,7 +98,6 @@ async function parseTx(payloadString: string, id: number, transaction: Transacti
     try{
         transactionPayload = TransactionPayloadSchema.parse(JSON.parse(payloadString))       
     }catch(error){
-        //JSON is invalid, handle error
         if(error instanceof ZodError){
             throw error
         }
@@ -105,23 +109,23 @@ async function parseTx(payloadString: string, id: number, transaction: Transacti
 }
 
 export const TransactionPayloadSchema = z.object({
-  currency: z.string(),
-  txHash: z.string(),
-  sender: z.string().optional(),
-  receiver: z.string().optional(),
-  message: z.string().optional(),
-  amount: z.string(),
-  status: z.enum(["completed", "failed", "returned", "lost"]).optional(),
+    currency: z.string(),
+    txHash: z.string(),
+    sender: z.string().optional(),
+    receiver: z.string().optional(),
+    message: z.string().optional(),
+    amount: z.string(),
+    status: z.enum(["completed", "failed", "returned", "lost"]).optional(),
 }).strict();
 
 export type TransactionPayload = z.infer<typeof TransactionPayloadSchema>;
 
 async function shutdown() {
-  console.log("Shutting down...");
-  await worker.close();
-  await queueEvents.close();
-  await eventsConnection.quit();
-  await connection.quit();
+    console.log("Shutting down...");
+    await worker.close();
+    await queueEvents.close();
+    await eventsConnection.quit();
+    await connection.quit();
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
