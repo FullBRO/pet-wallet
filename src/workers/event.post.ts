@@ -1,5 +1,5 @@
-import { Worker, QueueEvents, UnrecoverableError } from 'bullmq';
-import type {Job} from 'bullmq'
+import { Worker, QueueEvents } from 'bullmq';
+import type { Job } from 'bullmq'
 import { Payload } from '../db/models/Payload.js';
 import { atomicTransaction } from '../db/helper.js';
 import { Transaction } from 'sequelize';
@@ -7,8 +7,8 @@ import { Event } from '../db/models/Event.js';
 import { postEventQueueData } from '../modules/events/bull.js';
 import { env } from '../config/env.js';
 import { Redis, RedisOptions } from 'ioredis';
-import {Transaction as TransactionModel} from '../db/models/Transactions.js'
-import {z, ZodError} from 'zod';
+import { Transaction as TransactionModel } from '../db/models/Transactions.js'
+import { z, ZodError } from 'zod';
 import { EVENT_STATUSES } from '../modules/events/constants.js';
 
 const redisOptions: RedisOptions = {
