@@ -9,18 +9,37 @@ export class User extends Model {
 
 User.init({
     id: {
-        type: DataTypes.BIGINT.UNSIGNED,
-        primaryKey: true
+        type: DataTypes.INTEGER.UNSIGNED,
+        primaryKey: true,
+        references: {
+            model: 'events',
+            key: 'id'
+        }
+    },
+    tg_user_id: {
+        type: DataTypes.STRING(10),
+        allowNull: false,
     },
     username: {
         type: DataTypes.STRING(32),
         allowNull: false,
-        unique:true
     },
-    created_at: {
+    action: {
+        type: DataTypes.STRING(16),
+        allowNull: true,
+        defaultValue: null
+    },
+    bonus: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false,
+        defaultValue: 0
+    },
+    timestamp: {
         type: DataTypes.DATE,
-        allowNull: false
-    },
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+    }
+
 },
 {
     sequelize,
