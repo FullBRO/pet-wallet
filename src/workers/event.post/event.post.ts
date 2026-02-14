@@ -1,15 +1,16 @@
 import { Worker, QueueEvents } from 'bullmq';
 import type { Job } from 'bullmq'
-import { Payload } from '../db/models/Payload.js';
-import { atomicTransaction } from '../db/helper.js';
+import { Payload } from '../../db/models/Payload.js';
+import { atomicTransaction } from '../../db/helper.js';
 import { Transaction } from 'sequelize';
-import { Event } from '../db/models/Event.js';
-import { postEventQueueData } from '../modules/events/bull.js';
-import { env } from '../config/env.js';
+import { Event } from '../../db/models/Event.js';
+import { postEventQueueData } from '../../modules/events/bull.js';
+import { env } from '../../config/env.js';
 import { Redis, RedisOptions } from 'ioredis';
-import { Transaction as TransactionModel } from '../db/models/Transactions.js'
-import { z, ZodError } from 'zod';
-import { EVENT_STATUSES } from '../modules/events/constants.js';
+import { Transaction as TransactionModel } from '../../db/models/Transactions.js'
+import { ZodError } from 'zod';
+import { EVENT_STATUSES } from '../../modules/events/constants.js';
+import {parseAndUpsert} from './helper.js'
 
 const redisOptions: RedisOptions = {
   host: env.REDIS_HOST,
@@ -49,6 +50,17 @@ async function preatomicPost(job: Job<postEventQueueData>) {
     return await atomicTransaction(job.data, processPost)
 }
 
+const typeMap = {
+    tx: 'TRANSACTION',
+    user: 'USER'
+} as const
+
+type EventTypeKey = keyof typeof typeMap;
+
+interface EventInterface {
+    type: EventTypeKey;
+}
+
 async function processPost(data: postEventQueueData, transaction: Transaction): Promise<TransactionModel | null>{
     const id = data.eventId
     const event = await Event.findByPk(id, {transaction})
@@ -66,15 +78,12 @@ async function processPost(data: postEventQueueData, transaction: Transaction): 
     }
     let row = null;
     try{
-        switch(event.type){
-            case 'tx':
-                row = await parseTx(payload.payload, id, transaction)
-                break;
-            default:
-                await payload.update({status: 'failed'}, {transaction})
-                await event.update({status: EVENT_STATUSES.failed, error: 'Failed to create details row. Manual intervention required'}, {transaction})
-                return null
+        if (!(event.type in typeMap)) {
+            throw new Error(`Unknown event type: ${event.type}`);
         }
+        const type = typeMap[event.type as keyof typeof typeMap];
+        row = await parseAndUpsert(payload.payload, id, type, transaction)
+
     } catch(error){
         if(error instanceof ZodError || (error instanceof Error && error.message==="JSON is invalid")){
             await payload.update({ status: "invalid" }, {transaction});
@@ -92,33 +101,6 @@ async function processPost(data: postEventQueueData, transaction: Transaction): 
     return row
 }
 
-
-async function parseTx(payloadString: string, id: number, transaction: Transaction): Promise<TransactionModel | null> {
-    let transactionPayload;
-    try{
-        transactionPayload = TransactionPayloadSchema.parse(JSON.parse(payloadString))       
-    }catch(error){
-        if(error instanceof ZodError){
-            throw error
-        }
-        console.log(error)
-        throw new Error("JSON is invalid")
-    }
-    const row = await TransactionModel.upsert({...transactionPayload, id}, {transaction})
-    return row[0]
-}
-
-export const TransactionPayloadSchema = z.object({
-    currency: z.string(),
-    txHash: z.string(),
-    sender: z.string().optional(),
-    receiver: z.string().optional(),
-    message: z.string().optional(),
-    amount: z.string(),
-    status: z.enum(["completed", "failed", "returned", "lost"]).optional(),
-}).strict();
-
-export type TransactionPayload = z.infer<typeof TransactionPayloadSchema>;
 
 async function shutdown() {
     console.log("Shutting down...");
