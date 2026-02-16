@@ -2,37 +2,8 @@ import { ZodError, z } from "zod";
 import { Transaction as TransactionModel }  from "../../db/models/Transactions.js";
 import type { Transaction } from "sequelize";
 import { User } from "../../db/models/User.js";
+import { ProcessorRegistry } from "../../modules/events/constants.js";
 
-const UserPayloadSchema = z.object({
-    tg_user_id : z.uint64,
-    username: z.string,
-    action: z.string,
-    bonus: z.int,
-    timestamp: z.date
-}).strict();
-
-const TransactionPayloadSchema = z.object({
-    currency: z.string(),
-    txHash: z.string(),
-    sender: z.string().optional(),
-    receiver: z.string().optional(),
-    message: z.string().optional(),
-    amount: z.string(),
-    status: z.enum(["completed", "failed", "returned", "lost"]).optional(),
-}).strict();
-
-const UserPayloadProcessor = {
-    schema: UserPayloadSchema,
-    model: User
-}
-const TransactionPayloadProcessor = {
-    schema: TransactionPayloadSchema,
-    model: TransactionModel
-}
-const ProcessorRegistry = {
-    USER: UserPayloadProcessor,
-    TRANSACTION: TransactionPayloadProcessor
-} as const
 
 
 export async function parseAndUpsert(
