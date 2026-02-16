@@ -1,7 +1,7 @@
 import { Transaction, UniqueConstraintError } from "sequelize"
-import { Event, Payload } from "../../db/models/index.js"
+import { Event, Payload, User, Transaction as TransactionModel } from "../../db/models/index.js"
 import { postEventQueue } from "./bull.js"
-import { EVENT_STATUSES, PostEventData } from "./constants.js"
+import { EVENT_STATUSES, PostEventData, GetEventData, TypeDetailsMap } from "./constants.js"
 
 export async function createEvent(data: PostEventData, transaction: Transaction): Promise<Event | null>{
     try{
@@ -53,4 +53,16 @@ export async function createEvent(data: PostEventData, transaction: Transaction)
     }
 }
 
+export async function getEventById(data: GetEventData, transaction: Transaction){
+    const event = await Event.findByPk(data.id, {transaction});
+    if(!event) return null;
+    const details = await parseType(event.type as keyof typeof TypeDetailsMap, data.id, transaction)
+    
+    return {event, details}
+}
 
+
+async function parseType(type: keyof typeof  TypeDetailsMap, id: string, transaction: Transaction): Promise<User | TransactionModel | null>{
+    const model = TypeDetailsMap[type]
+    return await model.findByPk(id, {transaction})
+}
