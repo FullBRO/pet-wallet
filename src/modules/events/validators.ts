@@ -27,3 +27,11 @@ export const postEventValidator = [
         .withMessage('Invalid data field. Should to be a JSON object')
 ]
 
+
+export const getEventValidator = [
+    param('id', 'Invalid id')
+    .isNumeric()
+    .withMessage("ID must be a number")
+    .bail()
+]
+

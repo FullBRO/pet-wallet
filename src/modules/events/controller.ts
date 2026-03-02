@@ -1,6 +1,6 @@
 import type {Request, Response} from 'express'
 import { atomicTransaction } from '../../db/helper.js'
-import { createEvent } from './helper.js';
+import { createEvent, getEventById } from './helper.js';
 import { EVENT_STATUSES } from './constants.js';
 
 export async function postEvent(req: Request, res: Response){
@@ -14,6 +14,14 @@ export async function postEvent(req: Request, res: Response){
     }
     if(event) return res.status(202).json({message: 'Accepted', id: event.id})
     return res.status(500).json({error: "Internal error"})
+}
+
+
+export async function getEvent(req: Request, res: Response){
+    const id = String(req.params.id);
+    const result = await atomicTransaction({id}, getEventById)
+    if(!result) return res.status(404).json({error: `Event with id ${id} not found`})
+    return res.status(200).json(result)
 }
 
 

@@ -27,11 +27,11 @@ export type PostEventData<T extends EventType = EventType> = {
 
 //Zod Schemas
 const UserPayloadSchema = z.object({
-    tg_user_id : z.uint64,
-    username: z.string,
-    action: z.string,
-    bonus: z.int,
-    timestamp: z.date
+    tg_user_id : z.coerce.bigint(),
+    username: z.string(),
+    action: z.string(),
+    bonus: z.int(),
+    timestamp: z.coerce.date()
 }).strict();
 
 const TransactionPayloadSchema = z.object({
@@ -64,3 +64,16 @@ export const ProcessorRegistry = {
     TRANSACTION: TransactionPayloadProcessor
 } as const
 
+
+
+//additional types
+export type GetEventData = {
+    id: string;
+}
+
+
+
+export const TypeDetailsMap = {
+    user: User,
+    tx: TransactionModel
+} as const

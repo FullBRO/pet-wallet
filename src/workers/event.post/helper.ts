@@ -29,5 +29,29 @@ export async function parseAndUpsert(
         throw new Error("JSON is invalid")
     }
     const row = await def.model.upsert({...(payload as any), id}, {transaction})
-    return row[0]
+    return toJsonSafe(row[0].get({plain: true}))
 }
+
+
+
+
+export function toJsonSafe<T>(value: T): any {
+    if (typeof value === "bigint") return value.toString();
+
+    if (Array.isArray(value)) {
+        return value.map(toJsonSafe);
+    }
+
+    if (value && typeof value === "object") {
+        const out: Record<string, any> = {};
+
+        for (const [k, v] of Object.entries(value as Record<string, any>)) {
+            out[k] = toJsonSafe(v);
+        }
+
+        return out;
+    }
+
+    return value;
+}
+
