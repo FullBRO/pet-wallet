@@ -103,11 +103,12 @@ async function processPost(data: postEventQueueData, transaction: Transaction): 
 
 
 async function shutdown() {
-    console.log("Shutting down...");
+    console.log("\nShutting down...");
     await worker.close();
     await queueEvents.close();
     await eventsConnection.quit();
     await connection.quit();
+    process.exit(0);
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
